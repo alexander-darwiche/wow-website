@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "server"
+version = "0.0.1"
+description = "Server for wow-website project"
+authors = ["alexander-darwiche"]
+license = "n"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
