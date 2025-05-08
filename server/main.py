@@ -1,12 +1,35 @@
-import uvicorn
-from fastapi import FastAPI, HTTPException, Depends
-from typing import Annotated, List
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from database import SessionLocal, engine
-import models
+# my-backend/main.py
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
+from pull_logs import summarize_zone_counts, get_dps_data, get_access_token
+from collections import Counter
 
-# Run command
-if __name__ == "__main__":
-    uvicorn.run("app.api:app", host="0.0.0.0", port=8000, reload=True)
+
+app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.get("/api/hello")
+def read_root():
+    return {"message": "Hello from FastAPI!"}
+
+
+# @app.get("/api/zone-summary")
+# def zone_summary():
+#     return summarize_zone_counts()
+
+# --- API Endpoint ---
+@app.get("/api/zone-summary")
+def get_zone_summary(guild: str = Query(...), server: str = Query(...), region: str = Query("US")):
+    data = summarize_zone_counts(guild, server, region)
+    return data
+
+@app.get("/api/dps/{report_code}")
+def dps_report(report_code: str):
+    return get_dps_data(report_code)
