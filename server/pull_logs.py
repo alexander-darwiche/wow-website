@@ -22,7 +22,7 @@ def get_access_token():
     return r.json()["access_token"]
 
 
-def fetch_all_logs(token, guild, server, region, limit=50):
+def fetch_all_logs(token, guild, server, region, limit=100):
     headers = {"Authorization": f"Bearer {token}"}
     query = f"""
     {{
