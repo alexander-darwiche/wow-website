@@ -3,14 +3,35 @@ import React, { useState } from "react";
 function DpsReport() {
   const [reportCode, setReportCode] = useState("");
   const [dpsData, setDpsData] = useState([]);
+  const [sortConfig, setSortConfig] = useState({ key: "", direction: "asc" });
 
   const fetchDps = () => {
     if (!reportCode) return;
 
     fetch(`http://localhost:8000/api/dps/${reportCode}`)
-      .then(res => res.json())
-      .then(data => setDpsData(data))
-      .catch(err => console.error("Failed to fetch DPS data:", err));
+      .then((res) => res.json())
+      .then((data) => setDpsData(data))
+      .catch((err) => console.error("Failed to fetch DPS data:", err));
+  };
+
+  const sortData = (key) => {
+    let direction = "asc";
+    if (sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+
+    const sortedData = [...dpsData].sort((a, b) => {
+      if (typeof a[key] === "string") {
+        return direction === "asc"
+          ? a[key].localeCompare(b[key])
+          : b[key].localeCompare(a[key]);
+      } else {
+        return direction === "asc" ? a[key] - b[key] : b[key] - a[key];
+      }
+    });
+
+    setDpsData(sortedData);
+    setSortConfig({ key, direction });
   };
 
   return (
@@ -28,9 +49,15 @@ function DpsReport() {
         <table border="1" cellPadding="8" style={{ marginTop: "20px" }}>
           <thead>
             <tr>
-              <th>Name</th>
-              <th>DPS</th>
-              <th>Total Damage</th>
+              <th onClick={() => sortData("name")}>
+                Name {sortConfig.key === "name" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+              </th>
+              <th onClick={() => sortData("dps")}>
+                DPS {sortConfig.key === "dps" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+              </th>
+              <th onClick={() => sortData("damage")}>
+                Total Damage {sortConfig.key === "damage" && (sortConfig.direction === "asc" ? "↑" : "↓")}
+              </th>
             </tr>
           </thead>
           <tbody>

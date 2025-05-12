@@ -1,7 +1,7 @@
 # my-backend/main.py
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pull_logs import summarize_zone_counts, get_dps_data, get_access_token
+from pull_logs import summarize_zone_counts, get_dps_data, get_gear_data
 from collections import Counter
 
 
@@ -33,3 +33,7 @@ def get_zone_summary(guild: str = Query(...), server: str = Query(...), region: 
 @app.get("/api/dps/{report_code}")
 def dps_report(report_code: str):
     return get_dps_data(report_code)
+
+@app.get("/api/gear/{report_code}")
+def dps_report(report_code: str):
+    return get_gear_data(report_code)
