@@ -4,6 +4,7 @@ import Home from "./pages/Home";
 import ZoneSummary from "./pages/ZoneSummary";
 import DpsReport from "./pages/DpsReport";
 import GearReport from "./pages/GearReport";
+import RaidingPopulation from "./pages/RaidingPopulation";
 
 function App() {
   return (
@@ -11,8 +12,9 @@ function App() {
       <nav style={{ padding: "10px" }}>
         <Link to="/">Home</Link> |{" "}
         <Link to="/zones">Zone Summary</Link> |{" "}
-        <Link to="/dps">DPS Report</Link>
-        <Link to="/gear">Gear Report</Link>
+        <Link to="/dps">DPS Report</Link> |{" "}
+        <Link to="/gear">Gear Report</Link> |{" "}
+        <Link to="/population">Raiding Population</Link> |{" "}
       </nav>
 
       <Routes>
@@ -20,6 +22,7 @@ function App() {
         <Route path="/zones" element={<ZoneSummary />} />
         <Route path="/dps" element={<DpsReport />} />
         <Route path="/gear" element={<GearReport />} />
+        <Route path="/population" element={<RaidingPopulation />} />
       </Routes>
     </Router>
   );
