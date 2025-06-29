@@ -171,12 +171,14 @@ def get_gear_data(report_code):
           try:
             if first_item[slot] == 0:
               ilvl = piece.get('itemLevel', '0')  # Assuming 'ilvl' is a key in 'piece', default to 'N/A' if missing
-              if ilvl not in (1,0) and slot != 3:
+              if ilvl not in (1,0) and slot not in (3,18):
                 total_ilvl = total_ilvl + int(ilvl)
                 count = count + 1
               player_data[f"gear_{slot}_name"] = gear_name
               player_data[f"gear_{slot}_slot"] = slot
               player_data[f"gear_{slot}_ilvl"] = ilvl
+              player_data[f"gear_{slot}_perm_enchant"] = piece.get('permanentEnchantName', '')
+              player_data[f"gear_{slot}_temp_enchant"] = piece.get('temporaryEnchantName', '')
               gear_data = {
                   "id": piece.get('id', 'Empty'),
                   **({"enchant": enchant} if (enchant := piece.get('permanentEnchant', '')) else {}),
@@ -186,10 +188,11 @@ def get_gear_data(report_code):
                 items.append(gear_data)
 
             first_item[slot] = first_item[slot] + 1
-          except:
+          except Exception:
               import pdb;pdb.set_trace()  
-              print('hi')
-        player_data["total_ilvl"] = round(total_ilvl / count, 2)
+              import traceback
+              traceback.print_exc()
+        player_data["total_ilvl"] = round(total_ilvl / max(1, count), 2)
         # import pdb;pdb.set_trace() 
 
         result.append(player_data)
