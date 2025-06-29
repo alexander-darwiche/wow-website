@@ -41,10 +41,12 @@ function GearReport() {
   const formatGearData = (data) => {
     return data.map((player) => {
       const gear = [];
-      for (let i = 1; i <= 18; i++) {
+      for (let i = 0; i <= 18; i++) {
         const ilvl = player[`gear_${i}_ilvl`] || 0;
         gear.push({
           name: player[`gear_${i}_name`] || "Empty",
+          permanentEnchant: player[`gear_${i}_perm_enchant`] || "Empty",
+          temporaryEnchant: player[`gear_${i}_temp_enchant`] || "Empty",
           ilvl
         });
       }
@@ -62,6 +64,19 @@ function GearReport() {
     if (ilvl >= 80) return "#ffe0b2"; // light orange
     return "#ffcdd2"; // light red
   };
+
+  // TODO: support off-hand enchants
+  const ENCHANT_GEAR_INDICES = new Set([0, 2, 4, 6, 7, 8, 9, 14, 15])
+  const RUNE_GEAR_INDICES = new Set([0, 2, 4, 5, 6, 7, 8, 9, 10, 11, 14])
+  const shouldHaveEnchant = (gearIndex) => {
+    return ENCHANT_GEAR_INDICES.has(gearIndex);
+  };
+  const shouldHaveRune = (gearIndex) => {
+    return RUNE_GEAR_INDICES.has(gearIndex);
+  };
+  const missingRuneOrEnchant = (gearIndex, permanentEnchant, temporaryEnchant) => {
+    return (shouldHaveEnchant(gearIndex) && permanentEnchant === "Empty") || (shouldHaveRune(gearIndex) && temporaryEnchant === "Empty");
+  }
 
   return (
     <div>
@@ -87,7 +102,7 @@ function GearReport() {
                 <th style={{ cursor: "pointer" }} onClick={() => sortData("totalIlvl")}>
                   Total iLvl {sortConfig.key === "totalIlvl" ? (sortConfig.direction === "asc" ? "↑" : "↓") : ""}
                 </th>
-                {Array.from({ length: 18 }, (_, index) => (
+                {Array.from({ length: 19 }, (_, index) => (
                   <th key={`gear_${index + 1}`}>{`Gear ${index + 1}`}</th>
                 ))}
               </tr>
@@ -99,7 +114,7 @@ function GearReport() {
                   <td
                     style={{
                       fontWeight: "bold",
-                      backgroundColor: getIlvlColor(player.totalIlvl / 18)
+                      backgroundColor: getIlvlColor(player.totalIlvl)
                     }}
                   >
                     {player.totalIlvl}
@@ -107,9 +122,14 @@ function GearReport() {
                   {player.gear.map((gear, gearIndex) => (
                     <td
                       key={gearIndex}
-                      style={{ backgroundColor: getIlvlColor(gear.ilvl) }}
+                      style={{
+                        backgroundColor: getIlvlColor(gear.ilvl),
+                        border: missingRuneOrEnchant(gearIndex, gear.permanentEnchant, gear.temporaryEnchant) ? "5px solid red" : ""
+                      }}
                     >
-                      {`${gear.name} (${gear.ilvl})`}
+                      {`${gear.name} (${gear.ilvl})`}<br/>
+                      <span style={{color: "green"}}>{shouldHaveEnchant(gearIndex) && `${gear.permanentEnchant}`}</span><br/>
+                      <span style={{color: "blue"}}>{shouldHaveRune(gearIndex) && `${gear.temporaryEnchant}`}</span>
                     </td>
                   ))}
                 </tr>
