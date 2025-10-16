@@ -8,8 +8,8 @@ CLIENT_SECRET = "2hb8IyvWlQqz3rtwjr2xW6jDzg0czpHQXRGKHLRP"
 GUILD_NAME = "sanctuary"
 SERVER_SLUG = "living-flame"
 REGION = "US"
-GRAPHQL_ENDPOINT = "https://sod.warcraftlogs.com/api/v2/client"
-TOKEN_URL = "https://sod.warcraftlogs.com/oauth/token"
+GRAPHQL_ENDPOINT = "https://fresh.warcraftlogs.com/api/v2/client"
+TOKEN_URL = "https://fresh.warcraftlogs.com/oauth/token"
 
 
 def get_access_token():
