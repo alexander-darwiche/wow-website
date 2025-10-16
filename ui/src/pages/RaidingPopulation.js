@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-function RaidingPopulation() {
+function RaidingPopulation({ backendUrl }) {
   const [server, setServer] = useState("");
   const [raidingData, setRaidingData] = useState({});
   const [loading, setLoading] = useState(false);
@@ -8,8 +8,8 @@ function RaidingPopulation() {
   const fetchRaidingData = () => {
     if (!server) return;
     setLoading(true);
-
-    fetch(`http://localhost:8000/api/raiding-population?server=${encodeURIComponent(server)}`)
+    
+    fetch(`${backendUrl}/api/raiding-population?server=${encodeURIComponent(server)}`)
       .then(res => res.json())
       .then(data => setRaidingData(data))
       .catch(err => console.error("Failed to fetch raiding population:", err))

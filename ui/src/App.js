@@ -6,7 +6,11 @@ import DpsReport from "./pages/DpsReport";
 import GearReport from "./pages/GearReport";
 import RaidingPopulation from "./pages/RaidingPopulation";
 
+
 function App() {
+  
+  const backendUrl = "https://wow-website-backend.onrender.com"; // or "http://localhost:8000" for local dev
+
   return (
     <Router>
       <nav style={{ padding: "10px" }}>
@@ -19,10 +23,10 @@ function App() {
 
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/zones" element={<ZoneSummary />} />
-        <Route path="/dps" element={<DpsReport />} />
-        <Route path="/gear" element={<GearReport />} />
-        <Route path="/population" element={<RaidingPopulation />} />
+        <Route path="/zones" element={<ZoneSummary backendUrl={backendUrl} />} />
+        <Route path="/dps" element={<DpsReport backendUrl={backendUrl} />} />
+        <Route path="/gear" element={<GearReport backendUrl={backendUrl} />} />
+        <Route path="/population" element={<RaidingPopulation backendUrl={backendUrl} />} />
       </Routes>
     </Router>
   );

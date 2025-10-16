@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-function ZoneSummary() {
+function ZoneSummary({ backendUrl }) {
   const [guild, setGuild] = useState("");
   const [server, setServer] = useState("");
   const [zoneSummary, setZoneSummary] = useState({});
@@ -10,7 +10,7 @@ function ZoneSummary() {
     if (!guild || !server) return;
     setLoading(true);
 
-    fetch(`http://localhost:8000/api/zone-summary?guild=${encodeURIComponent(guild)}&server=${encodeURIComponent(server)}`)
+    fetch(`${backendUrl}/api/zone-summary?guild=${encodeURIComponent(guild)}&server=${encodeURIComponent(server)}`)
       .then(res => res.json())
       .then(data => setZoneSummary(data))
       .catch(err => console.error("Failed to fetch zone summary:", err))

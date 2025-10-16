@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-function GearReport() {
+function GearReport({ backendUrl }) {
   const [reportCode, setReportCode] = useState("");
   const [gearData, setGearData] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: "", direction: "asc" });
@@ -8,7 +8,7 @@ function GearReport() {
   const fetchGear = () => {
     if (!reportCode) return;
 
-    fetch(`http://localhost:8000/api/gear/${reportCode}`)
+    fetch(`${backendUrl}/api/gear/${reportCode}`)
       .then((res) => res.json())
       .then((data) => setGearData(data))
       .catch((err) => console.error("Failed to fetch Gear data:", err));

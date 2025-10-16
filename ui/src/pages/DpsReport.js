@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-function DpsReport() {
+function DpsReport({ backendUrl }) {
   const [reportCode, setReportCode] = useState("");
   const [dpsData, setDpsData] = useState([]);
   const [sortConfig, setSortConfig] = useState({ key: "", direction: "asc" });
@@ -8,7 +8,7 @@ function DpsReport() {
   const fetchDps = () => {
     if (!reportCode) return;
 
-    fetch(`http://localhost:8000/api/dps/${reportCode}`)
+    fetch(`${backendUrl}/api/dps/${reportCode}`)
       .then((res) => res.json())
       .then((data) => setDpsData(data))
       .catch((err) => console.error("Failed to fetch DPS data:", err));
