@@ -60,8 +60,8 @@ function GearReport({ backendUrl }) {
   };
 
   const getIlvlColor = (ilvl) => {
-    if (ilvl >= 90) return "#c8e6c9"; // light green
-    if (ilvl >= 80) return "#ffe0b2"; // light orange
+    if (ilvl >= 75) return "#c8e6c9"; // light green
+    if (ilvl >= 60) return "#ffe0b2"; // light orange
     return "#ffcdd2"; // light red
   };
 
@@ -75,7 +75,7 @@ function GearReport({ backendUrl }) {
     return RUNE_GEAR_INDICES.has(gearIndex);
   };
   const missingRuneOrEnchant = (gearIndex, permanentEnchant, temporaryEnchant) => {
-    return (shouldHaveEnchant(gearIndex) && permanentEnchant === "Empty") || (shouldHaveRune(gearIndex) && temporaryEnchant === "Empty");
+    return (shouldHaveEnchant(gearIndex) && permanentEnchant === "Empty"); //|| (shouldHaveRune(gearIndex) && temporaryEnchant === "Empty");
   }
 
   return (
@@ -129,7 +129,7 @@ function GearReport({ backendUrl }) {
                     >
                       {`${gear.name} (${gear.ilvl})`}<br/>
                       <span style={{color: "green"}}>{shouldHaveEnchant(gearIndex) && `${gear.permanentEnchant}`}</span><br/>
-                      <span style={{color: "blue"}}>{shouldHaveRune(gearIndex) && `${gear.temporaryEnchant}`}</span>
+                      {/* <span style={{color: "blue"}}>{shouldHaveRune(gearIndex) && `${gear.temporaryEnchant}`}</span> */}
                     </td>
                   ))}
                 </tr>
