@@ -1,0 +1,19 @@
+services:
+  backend:
+    build: ./server
+    container_name: wow-backend
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./ui
+      args:
+        REACT_APP_BACKEND_URL: ""
+    container_name: wow-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

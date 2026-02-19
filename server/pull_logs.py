@@ -59,13 +59,36 @@ def summarize_zone_counts(GUILD_NAME=GUILD_NAME, SERVER_SLUG=SERVER_SLUG, REGION
     return dict(zone_counter)
 
 
-def fetch_dps_table(token, report_code):
+def get_guild_logs(guild, server, region="US"):
+    token = get_access_token()
+    data = fetch_all_logs(token, guild, server, region)
+    reports = data["data"]["reportData"]["reports"]["data"]
+
+    result = []
+    for report in reports:
+        zone_name = report["zone"]["name"] if report.get("zone") else "Unknown"
+        result.append({
+            "code": report["code"],
+            "title": report["title"],
+            "zone": zone_name,
+            "owner": report["owner"]["name"] if report.get("owner") else "Unknown",
+        })
+
+    return result
+
+
+def fetch_table(token, report_code, data_type="DamageDone", fight_ids=None):
     headers = {"Authorization": f"Bearer {token}"}
+    if fight_ids:
+        ids_str = ", ".join(str(fid) for fid in fight_ids)
+        fight_filter = f"fightIDs: [{ids_str}],"
+    else:
+        fight_filter = ""
     query = f"""
     {{
       reportData {{
         report(code: "{report_code}") {{
-          table(dataType: DamageDone, startTime: 0, endTime: 100000000)
+          table(dataType: {data_type}, {fight_filter} startTime: 0, endTime: 100000000)
         }}
       }}
     }}
@@ -74,6 +97,10 @@ def fetch_dps_table(token, report_code):
     response = requests.post(GRAPHQL_ENDPOINT, json={"query": query}, headers=headers)
     response.raise_for_status()
     return response.json()
+
+
+def fetch_dps_table(token, report_code, fight_ids=None):
+    return fetch_table(token, report_code, "DamageDone", fight_ids)
 
 
 def fetch_fights(token, report_code):
@@ -123,9 +150,64 @@ def fetch_fights(token, report_code):
     return response.json()
 
 
-def get_dps_data(report_code):
+def get_fights(report_code):
     token = get_access_token()
-    data = fetch_dps_table(token, report_code)
+    data = fetch_fights(token, report_code)
+    fights = data["data"]["reportData"]["report"]["fights"]
+
+    trash_ids = []
+    trash_duration = 0
+    bosses = []
+
+    for fight in fights:
+        encounter_id = fight.get("encounterID", 0)
+        fight_id = fight["id"]
+        start = fight.get("startTime", 0)
+        end = fight.get("endTime", 0)
+        duration_s = round((end - start) / 1000, 1)
+
+        if encounter_id == 0:
+            # Trash fight
+            trash_ids.append(fight_id)
+            trash_duration += duration_s
+        else:
+            # Boss fight
+            name = fight.get("name", "Unknown")
+            boss_pct = fight.get("bossPercentage", None)
+            difficulty = fight.get("difficulty", None)
+            kill = boss_pct == 0 if boss_pct is not None else None
+
+            bosses.append({
+                "ids": [fight_id],
+                "name": name,
+                "encounterID": encounter_id,
+                "duration": duration_s,
+                "kill": kill,
+                "bossPercentage": boss_pct,
+                "difficulty": difficulty,
+                "isTrash": False,
+            })
+
+    result = []
+    if trash_ids:
+        result.append({
+            "ids": trash_ids,
+            "name": "Trash",
+            "encounterID": 0,
+            "duration": round(trash_duration, 1),
+            "kill": None,
+            "bossPercentage": None,
+            "difficulty": None,
+            "isTrash": True,
+        })
+    result.extend(bosses)
+
+    return result
+
+
+def get_dps_data(report_code, fight_ids=None):
+    token = get_access_token()
+    data = fetch_dps_table(token, report_code, fight_ids)
     players = data["data"]["reportData"]["report"]["table"]["data"]["entries"]
 
     result = []
@@ -145,9 +227,31 @@ def get_dps_data(report_code):
     return result
 
 
-def get_gear_data(report_code):
+def get_healing_data(report_code, fight_ids=None):
     token = get_access_token()
-    data = fetch_dps_table(token, report_code)
+    data = fetch_table(token, report_code, "Healing", fight_ids)
+    players = data["data"]["reportData"]["report"]["table"]["data"]["entries"]
+
+    result = []
+    for player in players:
+        name = player["name"]
+        total = player["total"]
+        time = player["activeTime"]
+
+        hps = round(total / time * 1000, 2) if time else 0
+        result.append({
+            "name": name,
+            "healing": total,
+            "hps": hps,
+            "overheal": player.get("overheal", 0),
+        })
+
+    return result
+
+
+def get_gear_data(report_code, fight_ids=None):
+    token = get_access_token()
+    data = fetch_dps_table(token, report_code, fight_ids)
     players = data["data"]["reportData"]["report"]["table"]["data"]["entries"]
 
     result = []
@@ -193,25 +297,62 @@ def get_gear_data(report_code):
               import traceback
               traceback.print_exc()
         player_data["total_ilvl"] = round(total_ilvl / max(1, count), 2)
-        # import pdb;pdb.set_trace() 
 
         result.append(player_data)
 
-        import json
+    return result
 
-        # Assemble full player object
-        player_json = {
-            "player": {
-                "class": "Class" + player['type'],
-                "equipment": {
-                    "items": items
-                }
-            }
-        }
-        # print(player_json)
-        # print(json.dumps(player_json, indent=2))
 
-    
+CLASS_ID_MAP = {
+    "Warrior": 1, "Paladin": 2, "Hunter": 3, "Rogue": 4,
+    "Priest": 5, "DeathKnight": 6, "Shaman": 7, "Mage": 8,
+    "Warlock": 9, "Monk": 10, "Druid": 11,
+}
+
+def get_wowsims_export(report_code, fight_ids=None):
+    """Return per-player gear in WoWSims addon-import JSON format."""
+    token = get_access_token()
+    data = fetch_dps_table(token, report_code, fight_ids)
+    players = data["data"]["reportData"]["report"]["table"]["data"]["entries"]
+
+    result = []
+    for player in players:
+        name = player.get("name", "Unknown")
+        player_class = player.get("type", "Unknown")
+        player_icon = player.get("icon", "")
+        gear_raw = player.get("gear", [])
+
+        items = []
+        seen_slots = set()
+        for piece in gear_raw:
+            slot = piece.get("slot")
+            item_id = piece.get("id", 0)
+            if slot is None or item_id == 0 or slot in seen_slots:
+                continue
+            seen_slots.add(slot)
+
+            item = {"slot": slot, "id": item_id}
+            enchant = piece.get("permanentEnchant")
+            if enchant:
+                item["enchant"] = enchant
+            gems_raw = piece.get("gems", [])
+            if gems_raw:
+                gem_ids = [g.get("id") for g in gems_raw if g.get("id")]
+                if gem_ids:
+                    item["gems"] = gem_ids
+            items.append(item)
+
+        # Sort items by slot for readability
+        items.sort(key=lambda x: x["slot"])
+
+        result.append({
+            "name": name,
+            "class": CLASS_ID_MAP.get(player_class, 0),
+            "className": player_class,
+            "spec": player_icon.split("-")[-1] if "-" in player_icon else "",
+            "gear": items,
+        })
+
     return result
 
 

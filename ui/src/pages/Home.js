@@ -1,10 +1,33 @@
 import React from "react";
+import { Link } from "react-router-dom";
 
 function Home() {
   return (
-    <div>
-      <h1>Welcome to the Warcraft Logs Dashboard</h1>
-      <p>Use the navigation bar to view zone summaries or fetch DPS reports by code.</p>
+    <div className="home-hero">
+      <h1>Warcraft Logs Dashboard</h1>
+      <p>
+        Explore raid analytics — zone summaries, DPS breakdowns, gear audits,
+        and server population data, all powered by the WarcraftLogs API.
+      </p>
+
+      <div className="home-features">
+        <Link to="/guild" className="feature-card">
+          <div className="feature-icon">🏰</div>
+          <div className="feature-title">Guild Summary</div>
+          <div className="feature-desc">
+            Browse your guild's raid logs by zone. Click into any log to see
+            DPS, gear, and more.
+          </div>
+        </Link>
+
+        <Link to="/population" className="feature-card">
+          <div className="feature-icon">👥</div>
+          <div className="feature-title">Population</div>
+          <div className="feature-desc">
+            Find out how many unique raiders are active on a server.
+          </div>
+        </Link>
+      </div>
     </div>
   );
 }
