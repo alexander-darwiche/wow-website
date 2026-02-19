@@ -269,7 +269,8 @@ function ReportDetail({ backendUrl }) {
   const copyExport = (playerExport) => {
     const exportJson = JSON.stringify({
       name: playerExport.name,
-      class: playerExport.class,
+      race: playerExport.race || "Human",
+      class: playerExport.className,
       level: 80,
       gear: playerExport.gear,
     }, null, 2);

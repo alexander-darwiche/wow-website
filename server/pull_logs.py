@@ -465,5 +465,154 @@ def get_raid_pop():
     return results_dict
 
 
+def get_player_summary(guild, server, region, player_name):
+    """Get per-log + per-boss DPS for a specific player across guild logs."""
+    token = get_access_token()
+    data = fetch_all_logs(token, guild, server, region)
+    reports = data["data"]["reportData"]["reports"]["data"]
+
+    result = []
+    latest_export = None
+
+    for report in reports:
+        code = report["code"]
+        title = report["title"]
+        zone_name = report["zone"]["name"] if report.get("zone") else "Unknown"
+
+        # Fetch overall DPS to check if player is in this log
+        try:
+            dps_data = fetch_dps_table(token, code)
+            entries = dps_data["data"]["reportData"]["report"]["table"]["data"]["entries"]
+        except Exception:
+            continue
+
+        player_entry = None
+        for entry in entries:
+            if entry["name"].lower() == player_name.lower():
+                player_entry = entry
+                break
+
+        if not player_entry:
+            continue
+
+        overall_dps = round(player_entry["total"] / player_entry["activeTime"] * 1000, 2) if player_entry.get("activeTime") else 0
+        player_class = player_entry.get("type", "Unknown")
+        player_icon = player_entry.get("icon", "")
+
+        # Fetch fights for per-boss breakdown
+        try:
+            fights_data = fetch_fights(token, code)
+            fights = fights_data["data"]["reportData"]["report"]["fights"]
+        except Exception:
+            fights = []
+
+        boss_fights = []
+        for fight in fights:
+            encounter_id = fight.get("encounterID", 0)
+            if encounter_id == 0:
+                continue
+            fight_id = fight["id"]
+            fight_name = fight.get("name", "Unknown")
+            start = fight.get("startTime", 0)
+            end = fight.get("endTime", 0)
+            duration_s = round((end - start) / 1000, 1)
+            boss_pct = fight.get("bossPercentage", None)
+            kill = boss_pct == 0 if boss_pct is not None else None
+
+            # Per-boss DPS for this player
+            try:
+                boss_dps_data = fetch_dps_table(token, code, [fight_id])
+                boss_entries = boss_dps_data["data"]["reportData"]["report"]["table"]["data"]["entries"]
+                boss_player = None
+                for be in boss_entries:
+                    if be["name"].lower() == player_name.lower():
+                        boss_player = be
+                        break
+            except Exception:
+                boss_player = None
+
+            if boss_player:
+                boss_dps = round(boss_player["total"] / boss_player["activeTime"] * 1000, 2) if boss_player.get("activeTime") else 0
+                boss_damage = boss_player["total"]
+            else:
+                boss_dps = 0
+                boss_damage = 0
+
+            boss_fights.append({
+                "fightId": fight_id,
+                "boss": fight_name,
+                "duration": duration_s,
+                "kill": kill,
+                "dps": boss_dps,
+                "damage": boss_damage,
+            })
+
+        # Build gear export from this log (first log where player appears = most recent)
+        if latest_export is None:
+            gear_raw = player_entry.get("gear", [])
+            items = []
+            gear_display = []
+            seen_slots = set()
+            for piece in gear_raw:
+                slot = piece.get("slot")
+                item_id = piece.get("id", 0)
+                if slot is None or item_id == 0 or slot in seen_slots:
+                    continue
+                seen_slots.add(slot)
+                item = {"slot": slot, "id": item_id}
+                enchant = piece.get("permanentEnchant")
+                if enchant:
+                    item["enchant"] = enchant
+                gems_raw = piece.get("gems", [])
+                if gems_raw:
+                    gem_ids = [g.get("id") for g in gems_raw if g.get("id")]
+                    if gem_ids:
+                        item["gems"] = gem_ids
+                items.append(item)
+
+                # Detailed display info
+                gear_display.append({
+                    "slot": slot,
+                    "id": item_id,
+                    "name": piece.get("name", "Empty"),
+                    "ilvl": piece.get("itemLevel", 0),
+                    "enchant": piece.get("permanentEnchantName", ""),
+                    "quality": piece.get("quality", 0),
+                })
+
+            items.sort(key=lambda x: x["slot"])
+            gear_display.sort(key=lambda x: x["slot"])
+
+            # Compute avg ilvl (exclude shirt=3, tabard=18)
+            ilvl_items = [g for g in gear_display if g["slot"] not in (3, 18) and g["ilvl"] not in (0, 1)]
+            avg_ilvl = round(sum(g["ilvl"] for g in ilvl_items) / max(1, len(ilvl_items)), 1)
+
+            latest_export = {
+                "name": player_entry["name"],
+                "class": CLASS_ID_MAP.get(player_class, 0),
+                "className": player_class,
+                "spec": player_icon.split("-")[-1] if "-" in player_icon else "",
+                "gear": items,
+                "gearDisplay": gear_display,
+                "avgIlvl": avg_ilvl,
+            }
+
+        result.append({
+            "reportCode": code,
+            "title": title,
+            "zone": zone_name,
+            "overallDps": overall_dps,
+            "bosses": boss_fights,
+        })
+
+    return {
+        "player": player_name,
+        "playerClass": latest_export.get("className") if latest_export else None,
+        "spec": latest_export.get("spec") if latest_export else None,
+        "export": latest_export,
+        "logs": result,
+    }
+
+
 
 

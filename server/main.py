@@ -1,7 +1,7 @@
 # my-backend/main.py
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pull_logs import summarize_zone_counts, get_guild_logs, get_fights, get_dps_data, get_healing_data, get_gear_data, get_wowsims_export, get_raid_pop
+from pull_logs import summarize_zone_counts, get_guild_logs, get_fights, get_dps_data, get_healing_data, get_gear_data, get_wowsims_export, get_player_summary, get_raid_pop
 from collections import Counter
 from typing import Optional, List
 
@@ -59,6 +59,10 @@ def gear_report(report_code: str, fight_ids: Optional[str] = Query(None)):
 @app.get("/api/wowsims-export/{report_code}")
 def wowsims_export(report_code: str, fight_ids: Optional[str] = Query(None)):
     return get_wowsims_export(report_code, parse_fight_ids(fight_ids))
+
+@app.get("/api/player-summary")
+def player_summary(guild: str = Query(...), server: str = Query(...), player: str = Query(...), region: str = Query("US")):
+    return get_player_summary(guild, server, region, player)
 
 @app.get("/api/raiding-population")
 def get_raiding_population(server: str = Query(...), region: str = Query("US")):

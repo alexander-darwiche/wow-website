@@ -8,6 +8,7 @@ import {
 import Home from "./pages/Home";
 import GuildSummary from "./pages/GuildSummary";
 import ReportDetail from "./pages/ReportDetail";
+import PlayerPage from "./pages/PlayerPage";
 import RaidingPopulation from "./pages/RaidingPopulation";
 import "./App.css";
 
@@ -30,6 +31,9 @@ function App() {
             <NavLink to="/guild" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
               Guild Summary
             </NavLink>
+            <NavLink to="/player" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
+              Player
+            </NavLink>
             <NavLink to="/population" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
               Population
             </NavLink>
@@ -41,6 +45,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/guild" element={<GuildSummary backendUrl={backendUrl} />} />
             <Route path="/report/:code" element={<ReportDetail backendUrl={backendUrl} />} />
+            <Route path="/player" element={<PlayerPage backendUrl={backendUrl} />} />
             <Route path="/population" element={<RaidingPopulation backendUrl={backendUrl} />} />
           </Routes>
         </main>
