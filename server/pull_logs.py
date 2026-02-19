@@ -279,6 +279,7 @@ def get_gear_data(report_code, fight_ids=None):
                 total_ilvl = total_ilvl + int(ilvl)
                 count = count + 1
               player_data[f"gear_{slot}_name"] = gear_name
+              player_data[f"gear_{slot}_id"] = piece.get('id', 0)
               player_data[f"gear_{slot}_slot"] = slot
               player_data[f"gear_{slot}_ilvl"] = ilvl
               player_data[f"gear_{slot}_perm_enchant"] = piece.get('permanentEnchantName', '')

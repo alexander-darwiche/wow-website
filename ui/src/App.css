@@ -794,3 +794,15 @@
 .sim-table td {
   vertical-align: middle;
 }
+
+/* ===== Wowhead Links ===== */
+.wowhead-link {
+  color: var(--accent-gold);
+  text-decoration: none;
+  transition: var(--transition);
+}
+
+.wowhead-link:hover {
+  color: var(--accent-gold-hover);
+  text-decoration: underline;
+}

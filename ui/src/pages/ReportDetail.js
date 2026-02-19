@@ -227,6 +227,7 @@ function ReportDetail({ backendUrl }) {
       for (let i = 0; i <= 18; i++) {
         gear.push({
           name: player[`gear_${i}_name`] || "Empty",
+          itemId: player[`gear_${i}_id`] || 0,
           permanentEnchant: player[`gear_${i}_perm_enchant`] || "Empty",
           temporaryEnchant: player[`gear_${i}_temp_enchant`] || "Empty",
           ilvl: player[`gear_${i}_ilvl`] || 0,
@@ -570,7 +571,20 @@ function ReportDetail({ backendUrl }) {
                           }
                           style={{ fontSize: "0.8rem", minWidth: "120px" }}
                         >
-                          <div>{g.name}</div>
+                          <div>
+                            {g.itemId ? (
+                              <a
+                                href={`https://www.wowhead.com/classic/item=${g.itemId}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="wowhead-link"
+                              >
+                                {g.name}
+                              </a>
+                            ) : (
+                              g.name
+                            )}
+                          </div>
                           <span
                             className={`ilvl-badge ${getIlvlClass(g.ilvl)}`}
                           >
