@@ -807,6 +807,18 @@
 }
 
 /* ===== Wowhead Links ===== */
+
+.log-card-date {
+  color: var(--accent-gold);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.class-spec-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
 .wowhead-link {
   color: var(--accent-gold);
   text-decoration: none;

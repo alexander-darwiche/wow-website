@@ -34,6 +34,7 @@ function ReportDetail({ backendUrl }) {
     key: "",
     direction: "asc",
   });
+  const [copiedAudit, setCopiedAudit] = useState(false);
 
   // Sim comparison state
   const [simExportData, setSimExportData] = useState([]);
@@ -202,14 +203,31 @@ function ReportDetail({ backendUrl }) {
     healingData.length > 0 ? Math.max(...healingData.map((d) => d.hps)) : 1;
 
   // --- Gear sorting ---
+  const countMissing = (player) => {
+    let count = 0;
+    for (const i of [0, 2, 4, 6, 7, 8, 9, 14, 15]) {
+      if (!player[`gear_${i}_perm_enchant`] || player[`gear_${i}_perm_enchant`] === "") count++;
+    }
+    return count;
+  };
+
   const sortGear = (key) => {
     let direction = "asc";
     if (gearSortConfig.key === key && gearSortConfig.direction === "asc") {
       direction = "desc";
     }
     const sorted = [...gearData].sort((a, b) => {
-      const aVal = key === "totalIlvl" ? a.total_ilvl : a[key];
-      const bVal = key === "totalIlvl" ? b.total_ilvl : b[key];
+      let aVal, bVal;
+      if (key === "totalIlvl") {
+        aVal = a.total_ilvl; bVal = b.total_ilvl;
+      } else if (key === "missingEnchants") {
+        aVal = countMissing(a); bVal = countMissing(b);
+      } else if (key === "className") {
+        aVal = `${a.className || ""}-${a.spec || ""}`;
+        bVal = `${b.className || ""}-${b.spec || ""}`;
+      } else {
+        aVal = a[key]; bVal = b[key];
+      }
       if (typeof aVal === "string")
         return direction === "asc"
           ? aVal.localeCompare(bVal)
@@ -243,6 +261,8 @@ function ReportDetail({ backendUrl }) {
       }
       return {
         name: player.name || "Unknown Player",
+        className: player.className || "",
+        spec: player.spec || "",
         gear,
         totalIlvl: player.total_ilvl,
         missingEnchants: gear.reduce(
@@ -269,6 +289,38 @@ function ReportDetail({ backendUrl }) {
     "Ring 1", "Ring 2", "Trinket 1", "Trinket 2", "Back",
     "Main Hand", "Off Hand", "Ranged", "Tabard",
   ];
+
+  const exportEnchantAudit = () => {
+    const formatted = formatGearData(gearData);
+    const lines = [];
+    lines.push("⚠️ ENCHANT AUDIT");
+    lines.push("═══════════════════════════════");
+    let allGood = true;
+    for (const player of formatted) {
+      const missing = [];
+      player.gear.forEach((g, i) => {
+        if (shouldHaveEnchant(i) && g.permanentEnchant === "Empty") {
+          missing.push(SLOT_NAMES[i]);
+        }
+      });
+      if (missing.length > 0) {
+        allGood = false;
+        const classInfo = player.className ? ` (${player.className}${player.spec ? " - " + player.spec : ""})` : "";
+        lines.push(`❌ ${player.name}${classInfo}`);
+        missing.forEach((slot) => lines.push(`   └─ ${slot}: No enchant`));
+      }
+    }
+    if (allGood) {
+      lines.push("✅ All players have enchants on all required slots!");
+    }
+    lines.push("═══════════════════════════════");
+    const summary = formatted.filter((p) => p.missingEnchants > 0);
+    lines.push(`${summary.length} of ${formatted.length} players missing enchants`);
+    navigator.clipboard.writeText(lines.join("\n")).then(() => {
+      setCopiedAudit(true);
+      setTimeout(() => setCopiedAudit(false), 2000);
+    });
+  };
 
   // --- Sim comparison helpers ---
   const updateSimDps = (playerName, value) => {
@@ -552,6 +604,12 @@ function ReportDetail({ backendUrl }) {
                 >
                   {gearFilterMissing ? "✓ Showing Missing Enchants" : "Filter: Missing Enchants"}
                 </button>
+                <button
+                  className="btn btn-secondary"
+                  onClick={exportEnchantAudit}
+                >
+                  {copiedAudit ? "✓ Copied!" : "📋 Export Enchant Audit"}
+                </button>
               </div>
               <div className="table-container">
               <table className="data-table">
@@ -560,10 +618,15 @@ function ReportDetail({ backendUrl }) {
                     <th onClick={() => sortGear("name")}>
                       Player {gearIndicator("name")}
                     </th>
+                    <th onClick={() => sortGear("className")}>
+                      Class / Spec {gearIndicator("className")}
+                    </th>
                     <th onClick={() => sortGear("totalIlvl")}>
                       Avg iLvl {gearIndicator("totalIlvl")}
                     </th>
-                    <th>Missing</th>
+                    <th onClick={() => sortGear("missingEnchants")} style={{ cursor: "pointer" }}>
+                      Missing {gearIndicator("missingEnchants")}
+                    </th>
                     {SLOT_NAMES.map((name, i) => (
                       <th key={i}>{name}</th>
                     ))}
@@ -576,6 +639,11 @@ function ReportDetail({ backendUrl }) {
                     <tr key={idx}>
                       <td style={{ fontWeight: 600, whiteSpace: "nowrap" }}>
                         {player.name}
+                      </td>
+                      <td style={{ whiteSpace: "nowrap", fontSize: "0.85rem" }}>
+                        <span className="class-spec-label">
+                          {player.className}{player.spec ? ` — ${player.spec}` : ""}
+                        </span>
                       </td>
                       <td>
                         <span

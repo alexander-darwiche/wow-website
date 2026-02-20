@@ -34,9 +34,7 @@ function App() {
             <NavLink to="/player" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
               Player
             </NavLink>
-            <NavLink to="/population" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
-              Population
-            </NavLink>
+            {/* Population nav link disabled for now */}
           </div>
         </nav>
 
@@ -46,7 +44,7 @@ function App() {
             <Route path="/guild" element={<GuildSummary backendUrl={backendUrl} />} />
             <Route path="/report/:code" element={<ReportDetail backendUrl={backendUrl} />} />
             <Route path="/player" element={<PlayerPage backendUrl={backendUrl} />} />
-            <Route path="/population" element={<RaidingPopulation backendUrl={backendUrl} />} />
+            {/* <Route path="/population" element={<RaidingPopulation backendUrl={backendUrl} />} /> */}
           </Routes>
         </main>
 

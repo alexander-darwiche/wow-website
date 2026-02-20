@@ -31,6 +31,7 @@ def fetch_all_logs(token, guild, server, region, limit=100):
           data {{
             code
             title
+            startTime
             zone {{
               name
             }}
@@ -72,8 +73,11 @@ def get_guild_logs(guild, server, region="US"):
             "title": report["title"],
             "zone": zone_name,
             "owner": report["owner"]["name"] if report.get("owner") else "Unknown",
+            "startTime": report.get("startTime", 0),
         })
 
+    # Sort by startTime descending (most recent first)
+    result.sort(key=lambda r: r["startTime"], reverse=True)
     return result
 
 
@@ -259,9 +263,15 @@ def get_gear_data(report_code, fight_ids=None):
         name = player["name"]
         gear = player["gear"]
 
+        player_class = player.get("type", "Unknown")
+        player_icon = player.get("icon", "")
+        player_spec = player_icon.split("-")[-1] if "-" in player_icon else ""
+
         # Initialize an entry for this player
         player_data = {
-            "name": name
+            "name": name,
+            "className": player_class,
+            "spec": player_spec,
         }
 
         first_item = [0]*20

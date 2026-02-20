@@ -29,13 +29,7 @@ function Home() {
           </div>
         </Link>
 
-        <Link to="/population" className="feature-card">
-          <div className="feature-icon">👥</div>
-          <div className="feature-title">Population</div>
-          <div className="feature-desc">
-            Find out how many unique raiders are active on a server.
-          </div>
-        </Link>
+        {/* Population card disabled for now */}
       </div>
     </div>
   );
