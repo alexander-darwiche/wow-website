@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 function Home() {
   return (
     <div className="home-hero">
-      <h1>Warcraft Logs Dashboard</h1>
+      <h1>Raidlytics</h1>
       <p>
         Explore raid analytics — zone summaries, DPS breakdowns, gear audits,
         and server population data, all powered by the WarcraftLogs API.

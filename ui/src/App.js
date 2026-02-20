@@ -22,7 +22,7 @@ function App() {
         <nav className="navbar">
           <div className="navbar-brand">
             <span className="navbar-logo">⚔️</span>
-            <span className="navbar-title">WoW Dashboard</span>
+            <span className="navbar-title">Raidlytics</span>
           </div>
           <div className="navbar-links">
             <NavLink to="/" end className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
@@ -51,7 +51,7 @@ function App() {
         </main>
 
         <footer className="footer">
-          <p>Warcraft Logs Dashboard &mdash; Data sourced from WarcraftLogs API</p>
+          <p>Raidlytics &mdash; Data sourced from WarcraftLogs API</p>
         </footer>
       </div>
     </Router>
