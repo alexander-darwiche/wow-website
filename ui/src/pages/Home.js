@@ -20,6 +20,15 @@ function Home() {
           </div>
         </Link>
 
+        <Link to="/player" className="feature-card">
+          <div className="feature-icon">⚔️</div>
+          <div className="feature-title">Player Lookup</div>
+          <div className="feature-desc">
+            Search for a player across guild logs. Compare actual DPS to sim
+            results and inspect gear.
+          </div>
+        </Link>
+
         <Link to="/population" className="feature-card">
           <div className="feature-icon">👥</div>
           <div className="feature-title">Population</div>

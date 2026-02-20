@@ -29,6 +29,7 @@ function ReportDetail({ backendUrl }) {
   // Gear state
   const [gearData, setGearData] = useState([]);
   const [gearLoading, setGearLoading] = useState(false);
+  const [gearFilterMissing, setGearFilterMissing] = useState(false);
   const [gearSortConfig, setGearSortConfig] = useState({
     key: "",
     direction: "asc",
@@ -52,6 +53,13 @@ function ReportDetail({ backendUrl }) {
   const [gearFetchedFight, setGearFetchedFight] = useState(null);
 
   const fightParam = selectedFight !== "all" ? `?fight_ids=${selectedFight}` : "";
+
+  // Refresh Wowhead tooltips/icons when gear data renders
+  useEffect(() => {
+    if (gearData.length > 0 && window.$WowheadPower) {
+      setTimeout(() => window.$WowheadPower.refreshLinks(), 100);
+    }
+  }, [gearData]);
 
   // Fetch fights on mount
   useEffect(() => {
@@ -237,6 +245,10 @@ function ReportDetail({ backendUrl }) {
         name: player.name || "Unknown Player",
         gear,
         totalIlvl: player.total_ilvl,
+        missingEnchants: gear.reduce(
+          (count, g, i) => count + (shouldHaveEnchant(i) && g.permanentEnchant === "Empty" ? 1 : 0),
+          0
+        ),
       };
     });
 
@@ -532,7 +544,16 @@ function ReportDetail({ backendUrl }) {
               <span className="loading-text">Loading gear data…</span>
             </div>
           ) : gearData.length > 0 ? (
-            <div className="table-container">
+            <div>
+              <div className="input-group">
+                <button
+                  className={`btn ${gearFilterMissing ? "btn-primary" : "btn-secondary"}`}
+                  onClick={() => setGearFilterMissing(!gearFilterMissing)}
+                >
+                  {gearFilterMissing ? "✓ Showing Missing Enchants" : "Filter: Missing Enchants"}
+                </button>
+              </div>
+              <div className="table-container">
               <table className="data-table">
                 <thead>
                   <tr>
@@ -542,13 +563,16 @@ function ReportDetail({ backendUrl }) {
                     <th onClick={() => sortGear("totalIlvl")}>
                       Avg iLvl {gearIndicator("totalIlvl")}
                     </th>
+                    <th>Missing</th>
                     {SLOT_NAMES.map((name, i) => (
                       <th key={i}>{name}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {formatGearData(gearData).map((player, idx) => (
+                  {formatGearData(gearData)
+                    .filter((p) => !gearFilterMissing || p.missingEnchants > 0)
+                    .map((player, idx) => (
                     <tr key={idx}>
                       <td style={{ fontWeight: 600, whiteSpace: "nowrap" }}>
                         {player.name}
@@ -561,6 +585,15 @@ function ReportDetail({ backendUrl }) {
                         >
                           {player.totalIlvl}
                         </span>
+                      </td>
+                      <td>
+                        {player.missingEnchants > 0 ? (
+                          <span className="ilvl-badge ilvl-low" style={{ fontWeight: 700 }}>
+                            {player.missingEnchants}
+                          </span>
+                        ) : (
+                          <span className="ilvl-badge ilvl-high">✓</span>
+                        )}
                       </td>
                       {player.gear.map((g, gi) => (
                         <td
@@ -575,10 +608,11 @@ function ReportDetail({ backendUrl }) {
                           <div>
                             {g.itemId ? (
                               <a
-                                href={`https://www.wowhead.com/classic/item=${g.itemId}`}
+                                href={`https://www.wowhead.com/tbc/item=${g.itemId}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="wowhead-link"
+                                data-wowhead={`item=${g.itemId}&domain=tbc`}
                               >
                                 {g.name}
                               </a>
@@ -604,6 +638,7 @@ function ReportDetail({ backendUrl }) {
                   ))}
                 </tbody>
               </table>
+            </div>
             </div>
           ) : (
             <div className="empty-state">

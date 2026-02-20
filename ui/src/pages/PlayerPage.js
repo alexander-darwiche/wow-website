@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 
 function PlayerPage({ backendUrl }) {
@@ -23,6 +23,13 @@ function PlayerPage({ backendUrl }) {
   // Expanded logs
   const [expandedLogs, setExpandedLogs] = useState(new Set());
   const [showGear, setShowGear] = useState(true);
+
+  // Refresh Wowhead tooltips/icons when data or gear visibility changes
+  useEffect(() => {
+    if (data && window.$WowheadPower) {
+      setTimeout(() => window.$WowheadPower.refreshLinks(), 100);
+    }
+  }, [data, showGear, expandedLogs]);
 
   const fetchPlayerData = () => {
     if (!guild || !server || !playerName) return;
@@ -288,10 +295,11 @@ function PlayerPage({ backendUrl }) {
                             {item ? (
                               <>
                                 <a
-                                  href={`https://www.wowhead.com/classic/item=${item.id}`}
+                                  href={`https://www.wowhead.com/tbc/item=${item.id}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className={`gear-item-name ${getQualityClass(item.quality)}`}
+                                  data-wowhead={`item=${item.id}&domain=tbc`}
                                 >
                                   {item.name}
                                 </a>
@@ -344,10 +352,11 @@ function PlayerPage({ backendUrl }) {
                             {item ? (
                               <>
                                 <a
-                                  href={`https://www.wowhead.com/classic/item=${item.id}`}
+                                  href={`https://www.wowhead.com/tbc/item=${item.id}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className={`gear-item-name ${getQualityClass(item.quality)}`}
+                                  data-wowhead={`item=${item.id}&domain=tbc`}
                                 >
                                   {item.name}
                                 </a>
@@ -392,10 +401,11 @@ function PlayerPage({ backendUrl }) {
                             {item ? (
                               <>
                                 <a
-                                  href={`https://www.wowhead.com/classic/item=${item.id}`}
+                                  href={`https://www.wowhead.com/tbc/item=${item.id}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   className={`gear-item-name ${getQualityClass(item.quality)}`}
+                                  data-wowhead={`item=${item.id}&domain=tbc`}
                                 >
                                   {item.name}
                                 </a>
