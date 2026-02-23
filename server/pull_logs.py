@@ -1,5 +1,8 @@
 import requests
+import time
 from collections import Counter
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 # ---- Configuration ----
 CLIENT_ID = "9eda1388-3586-4fef-9d23-f4878704f24e"
@@ -10,6 +13,29 @@ SERVER_SLUG = "living-flame"
 REGION = "US"
 GRAPHQL_ENDPOINT = "https://fresh.warcraftlogs.com/api/v2/client"
 TOKEN_URL = "https://fresh.warcraftlogs.com/oauth/token"
+
+
+def _get_session():
+    """Create a requests Session with retry logic for transient SSL/connection errors."""
+    session = requests.Session()
+    retries = Retry(
+        total=3,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["POST", "GET"],
+    )
+    adapter = HTTPAdapter(max_retries=retries)
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+    return session
+
+
+def _graphql_post(headers, query):
+    """Make a GraphQL POST request with retry logic."""
+    session = _get_session()
+    response = session.post(GRAPHQL_ENDPOINT, json={"query": query}, headers=headers)
+    response.raise_for_status()
+    return response.json()
 
 
 def get_access_token():
@@ -473,6 +499,228 @@ def get_raid_pop():
     results_dict['unique_raiders'] = unique_raiders
 
     return results_dict
+
+
+def fetch_master_data(token, report_code):
+    """Get player actor list to map names to sourceIDs."""
+    headers = {"Authorization": f"Bearer {token}"}
+    query = f"""
+    {{
+      reportData {{
+        report(code: "{report_code}") {{
+          masterData {{
+            actors(type: "Player") {{
+              id
+              name
+              type
+              subType
+            }}
+          }}
+        }}
+      }}
+    }}
+    """
+    return _graphql_post(headers, query)
+
+
+def fetch_graph(token, report_code, fight_id, source_id=None, data_type="DamageDone"):
+    """Fetch time-series graph data for a fight, optionally filtered to one player."""
+    headers = {"Authorization": f"Bearer {token}"}
+    source_filter = f"sourceID: {source_id}," if source_id else ""
+    query = f"""
+    {{
+      reportData {{
+        report(code: "{report_code}") {{
+          graph(dataType: {data_type}, fightIDs: [{fight_id}], {source_filter} startTime: 0, endTime: 100000000000)
+        }}
+      }}
+    }}
+    """
+    return _graphql_post(headers, query)
+
+
+def fetch_rankings(token, encounter_id, class_name, spec_name, metric="dps"):
+    """Fetch top character rankings for an encounter + class/spec."""
+    headers = {"Authorization": f"Bearer {token}"}
+    query = f"""
+    {{
+      worldData {{
+        encounter(id: {encounter_id}) {{
+          characterRankings(
+            className: "{class_name}"
+            specName: "{spec_name}"
+            metric: {metric}
+            page: 1
+          )
+        }}
+      }}
+    }}
+    """
+    return _graphql_post(headers, query)
+
+
+def _extract_timeline(series_data, total_time=None):
+    """Extract combined damage/healing over time from graph series data."""
+    if not series_data:
+        return []
+    combined = {}
+    for s in series_data:
+        data = s.get("data", [])
+        point_start = s.get("pointStart", 0)
+        point_interval = s.get("pointInterval", 1000)
+        for i, val in enumerate(data):
+            # data can be [timestamp, value] pairs or bare values with pointInterval
+            if isinstance(val, list):
+                t = val[0]
+                v = val[1]
+            else:
+                t = point_start + i * point_interval
+                v = val
+            # Convert time to seconds
+            t_sec = round(t / 1000, 1)
+            combined[t_sec] = combined.get(t_sec, 0) + v
+    return [{"time": t, "value": round(combined[t], 1)} for t in sorted(combined)]
+
+
+def fetch_player_abilities(token, report_code, fight_id, source_id, data_type="DamageDone"):
+    """Fetch per-ability damage/healing breakdown for a specific player in a fight."""
+    headers = {"Authorization": f"Bearer {token}"}
+    query = f"""
+    {{
+      reportData {{
+        report(code: "{report_code}") {{
+          table(dataType: {data_type}, fightIDs: [{fight_id}], sourceID: {source_id}, startTime: 0, endTime: 100000000000)
+        }}
+      }}
+    }}
+    """
+    return _graphql_post(headers, query)
+
+
+def _extract_abilities(table_json):
+    """Extract ability list from table response."""
+    entries = table_json["data"]["reportData"]["report"]["table"]["data"]["entries"]
+    abilities = []
+    for entry in entries:
+        abilities.append({
+            "name": entry.get("name", "Unknown"),
+            "total": entry.get("total", 0),
+            "uses": entry.get("uses", 0),
+            "hitCount": entry.get("hitCount", 0),
+            "tickCount": entry.get("tickCount", 0),
+        })
+    # Sort by total damage/healing descending
+    abilities.sort(key=lambda a: a["total"], reverse=True)
+    return abilities
+
+
+def get_compare_data(report_code, fight_id, player_name, metric="dps"):
+    """Compare a player's fight performance against the top-ranked parse."""
+    token = get_access_token()
+
+    # 1. Get fight info to find encounterID
+    fights_data = fetch_fights(token, report_code)
+    fights = fights_data["data"]["reportData"]["report"]["fights"]
+    fight = next((f for f in fights if f["id"] == fight_id), None)
+    if not fight:
+        return {"error": "Fight not found"}
+    encounter_id = fight.get("encounterID", 0)
+    if encounter_id == 0:
+        return {"error": "Cannot compare trash fights"}
+
+    # 2. Get player class/spec from table data
+    data_type = "DamageDone" if metric == "dps" else "Healing"
+    time.sleep(0.5)
+    table_data = fetch_table(token, report_code, data_type, [fight_id])
+    entries = table_data["data"]["reportData"]["report"]["table"]["data"]["entries"]
+    player_entry = next(
+        (e for e in entries if e["name"].lower() == player_name.lower()), None
+    )
+    if not player_entry:
+        return {"error": "Player not found in this fight"}
+
+    player_class = player_entry.get("type", "Unknown")
+    player_icon = player_entry.get("icon", "")
+    player_spec = player_icon.split("-")[-1] if "-" in player_icon else ""
+    player_total = player_entry.get("total", 0)
+    player_active = player_entry.get("activeTime", 1)
+    player_throughput = round(player_total / player_active * 1000, 2) if player_active else 0
+
+    # 3. Get player's sourceID
+    time.sleep(0.5)
+    master_data = fetch_master_data(token, report_code)
+    actors = master_data["data"]["reportData"]["report"]["masterData"]["actors"]
+    player_actor = next(
+        (a for a in actors if a["name"].lower() == player_name.lower()), None
+    )
+    if not player_actor:
+        return {"error": "Player actor not found"}
+    source_id = player_actor["id"]
+
+    # 4. Fetch player's per-ability breakdown
+    time.sleep(0.5)
+    player_abilities_data = fetch_player_abilities(token, report_code, fight_id, source_id, data_type)
+    player_abilities = _extract_abilities(player_abilities_data)
+
+    # 5. Fetch top ranking for this encounter/class/spec
+    time.sleep(0.5)
+    try:
+        rankings_data = fetch_rankings(token, encounter_id, player_class, player_spec, metric)
+        rankings_json = rankings_data["data"]["worldData"]["encounter"]["characterRankings"]
+        rankings = rankings_json.get("rankings", [])
+    except Exception as e:
+        return {"error": f"Failed to fetch rankings: {str(e)}"}
+
+    if not rankings:
+        return {"error": f"No rankings found for {player_class} {player_spec} on this encounter"}
+
+    top_rank = rankings[0]
+    top_report_code = top_rank["report"]["code"]
+    top_fight_id = top_rank["report"]["fightID"]
+    top_player_name = top_rank["name"]
+    top_amount = top_rank.get("amount", 0)
+
+    # 6. Get top player's sourceID
+    time.sleep(0.5)
+    top_master = fetch_master_data(token, top_report_code)
+    top_actors = top_master["data"]["reportData"]["report"]["masterData"]["actors"]
+    top_actor = next(
+        (a for a in top_actors if a["name"].lower() == top_player_name.lower()), None
+    )
+    if not top_actor:
+        return {"error": f"Top player '{top_player_name}' actor not found in their log"}
+    top_source_id = top_actor["id"]
+
+    # 7. Fetch top player's per-ability breakdown
+    time.sleep(0.5)
+    top_abilities_data = fetch_player_abilities(token, top_report_code, top_fight_id, top_source_id, data_type)
+    top_abilities = _extract_abilities(top_abilities_data)
+
+    # 8. Compute fight durations
+    player_duration = round((fight["endTime"] - fight["startTime"]) / 1000, 1)
+
+    return {
+        "encounterName": fight.get("name", "Unknown"),
+        "encounterID": encounter_id,
+        "metric": metric,
+        "player": {
+            "name": player_name,
+            "class": player_class,
+            "spec": player_spec,
+            "throughput": player_throughput,
+            "total": player_total,
+            "duration": player_duration,
+            "abilities": player_abilities,
+        },
+        "top": {
+            "name": top_player_name,
+            "throughput": round(top_amount, 2),
+            "total": sum(a["total"] for a in top_abilities),
+            "reportCode": top_report_code,
+            "fightId": top_fight_id,
+            "abilities": top_abilities,
+        },
+    }
 
 
 def get_player_summary(guild, server, region, player_name):
