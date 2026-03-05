@@ -679,6 +679,7 @@ def get_compare_data(report_code, fight_id, player_name, metric="dps"):
     top_fight_id = top_rank["report"]["fightID"]
     top_player_name = top_rank["name"]
     top_amount = top_rank.get("amount", 0)
+    top_duration = round(top_rank.get("duration", 0) / 1000, 1)
 
     # 6. Get top player's sourceID
     time.sleep(0.5)
@@ -716,6 +717,7 @@ def get_compare_data(report_code, fight_id, player_name, metric="dps"):
             "name": top_player_name,
             "throughput": round(top_amount, 2),
             "total": sum(a["total"] for a in top_abilities),
+            "duration": top_duration,
             "reportCode": top_report_code,
             "fightId": top_fight_id,
             "abilities": top_abilities,

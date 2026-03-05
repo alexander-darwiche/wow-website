@@ -294,7 +294,7 @@ function CompareReport({ backendUrl }) {
               </div>
               <div style={{ color: "var(--text-muted)", fontSize: "0.72rem" }}>
                 Total: {formatNumber(compareData.player.total)} &middot;{" "}
-                {compareData.player.duration}s
+                Fight: {compareData.player.duration}s
               </div>
             </div>
 
@@ -306,7 +306,8 @@ function CompareReport({ backendUrl }) {
                 {formatNumber(compareData.top.throughput)} {metricLabel}
               </div>
               <div style={{ color: "var(--text-muted)", fontSize: "0.72rem" }}>
-                Total: {formatNumber(compareData.top.total)}
+                Total: {formatNumber(compareData.top.total)} &middot;{" "}
+                Fight: {compareData.top.duration}s
               </div>
             </div>
 
@@ -391,6 +392,8 @@ function CompareReport({ backendUrl }) {
                       <th>Ability</th>
                       <th>Total</th>
                       <th>%</th>
+                      <th>Casts</th>
+                      <th>Dmg/Cast</th>
                       <th>Hits</th>
                     </tr>
                   </thead>
@@ -405,6 +408,8 @@ function CompareReport({ backendUrl }) {
                             : 0}
                           %
                         </td>
+                        <td>{a.uses || 0}</td>
+                        <td>{a.uses ? formatNumber(a.total / a.uses) : "—"}</td>
                         <td>{a.hitCount + a.tickCount}</td>
                       </tr>
                     ))}
@@ -425,6 +430,8 @@ function CompareReport({ backendUrl }) {
                       <th>Ability</th>
                       <th>Total</th>
                       <th>%</th>
+                      <th>Casts</th>
+                      <th>Dmg/Cast</th>
                       <th>Hits</th>
                     </tr>
                   </thead>
@@ -439,6 +446,8 @@ function CompareReport({ backendUrl }) {
                             : 0}
                           %
                         </td>
+                        <td>{a.uses || 0}</td>
+                        <td>{a.uses ? formatNumber(a.total / a.uses) : "—"}</td>
                         <td>{a.hitCount + a.tickCount}</td>
                       </tr>
                     ))}
