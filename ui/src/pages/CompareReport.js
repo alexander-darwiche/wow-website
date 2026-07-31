@@ -1,4 +1,5 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   BarChart,
   Bar,
@@ -11,7 +12,8 @@ import {
 } from "recharts";
 
 function CompareReport({ backendUrl }) {
-  const [reportCode, setReportCode] = useState("");
+  const [searchParams] = useSearchParams();
+  const [reportCode, setReportCode] = useState(() => searchParams.get("code") || "");
   const [fights, setFights] = useState([]);
   const [fightsLoading, setFightsLoading] = useState(false);
   const [selectedFight, setSelectedFight] = useState("");
@@ -22,6 +24,13 @@ function CompareReport({ backendUrl }) {
   const [compareData, setCompareData] = useState(null);
   const [compareLoading, setCompareLoading] = useState(false);
   const [error, setError] = useState("");
+  const [summary, setSummary] = useState("");
+  const [summaryLoading, setSummaryLoading] = useState(false);
+
+  // Track URL params for auto-loading
+  const paramFight = searchParams.get("fight") || "";
+  const paramPlayer = searchParams.get("player") || "";
+  const autoInitRef = useRef(false);
 
   const fetchFights = useCallback(() => {
     if (!reportCode) return;
@@ -71,6 +80,7 @@ function CompareReport({ backendUrl }) {
     if (!reportCode || !selectedFight || !selectedPlayer) return;
     setCompareLoading(true);
     setCompareData(null);
+    setSummary("");
     setError("");
 
     const params = new URLSearchParams({
@@ -98,6 +108,97 @@ function CompareReport({ backendUrl }) {
   const handleCodeKeyDown = (e) => {
     if (e.key === "Enter") fetchFights();
   };
+
+  const fetchSummary = async () => {
+    if (!compareData) return;
+    setSummaryLoading(true);
+    setSummary("");
+    try {
+      const res = await fetch(`${backendUrl}/api/compare-summary`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(compareData),
+      });
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const parsed = JSON.parse(line.slice(6));
+            if (parsed.content) {
+              setSummary((prev) => prev + parsed.content);
+            } else if (parsed.error) {
+              setError(parsed.error);
+            }
+          } catch {}
+        }
+      }
+    } catch (err) {
+      console.error("Summary fetch failed:", err);
+      setError("Failed to generate AI summary.");
+    } finally {
+      setSummaryLoading(false);
+    }
+  };
+
+  // Auto-load flow when navigated with URL params (code, fight, player)
+  useEffect(() => {
+    if (autoInitRef.current || !reportCode) return;
+    autoInitRef.current = true;
+
+    // Step 1: fetch fights
+    setFightsLoading(true);
+    fetch(`${backendUrl}/api/fights/${reportCode}`)
+      .then((res) => res.json())
+      .then((data) => {
+        const bossFights = data.filter((f) => !f.isTrash && f.encounterID !== 0);
+        setFights(bossFights);
+
+        // Step 2: if fight param, select it and fetch players
+        if (paramFight) {
+          setSelectedFight(paramFight);
+          setPlayersLoading(true);
+          return fetch(`${backendUrl}/api/dps/${reportCode}?fight_ids=${paramFight}`)
+            .then((res) => res.json())
+            .then((pData) => {
+              const sorted = [...pData].sort((a, b) => b.dps - a.dps);
+              setPlayers(sorted);
+
+              // Step 3: if player param, select it and auto-compare
+              if (paramPlayer) {
+                setSelectedPlayer(paramPlayer);
+                setCompareLoading(true);
+                const cParams = new URLSearchParams({
+                  fight_id: paramFight,
+                  player: paramPlayer,
+                  metric: "dps",
+                });
+                return fetch(`${backendUrl}/api/compare/${reportCode}?${cParams}`)
+                  .then((res) => res.json())
+                  .then((cData) => {
+                    if (cData.error) setError(cData.error);
+                    else setCompareData(cData);
+                  })
+                  .finally(() => setCompareLoading(false));
+              }
+            })
+            .finally(() => setPlayersLoading(false));
+        }
+      })
+      .catch((err) => {
+        console.error("Auto-load failed:", err);
+        setError("Failed to auto-load. Try manually.");
+      })
+      .finally(() => setFightsLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleFightChange = (e) => {
     const fightId = e.target.value;
@@ -300,7 +401,15 @@ function CompareReport({ backendUrl }) {
 
             <div className="card" style={{ textAlign: "center" }}>
               <div style={{ color: "var(--text-muted)", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: "0.25rem" }}>
-                #1 — {compareData.top.name}
+                #1 —{" "}
+                <a
+                  href={`https://classic.warcraftlogs.com/reports/${compareData.top.reportCode}#fight=${compareData.top.fightId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: "inherit", textDecoration: "underline" }}
+                >
+                  {compareData.top.name}
+                </a>
               </div>
               <div style={{ fontSize: "1.1rem", fontWeight: 700, color: "var(--accent-green)" }}>
                 {formatNumber(compareData.top.throughput)} {metricLabel}
@@ -516,6 +625,41 @@ function CompareReport({ backendUrl }) {
               )}
             </div>
           )}
+
+          {/* AI Rotation Analysis */}
+          <div className="card" style={{ marginTop: "1rem" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: summary ? "0.75rem" : 0 }}>
+              <div style={{ color: "var(--text-muted)", fontSize: "0.72rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                AI Rotation Analysis
+              </div>
+              <button
+                className="btn btn-primary"
+                onClick={fetchSummary}
+                disabled={summaryLoading}
+                style={{ fontSize: "0.78rem", padding: "0.35rem 0.85rem" }}
+              >
+                {summaryLoading ? "Analyzing…" : summary ? "Re-analyze" : "Analyze My Rotation"}
+              </button>
+            </div>
+            {summaryLoading && !summary && (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.5rem" }}>
+                <div className="spinner" style={{ width: "16px", height: "16px" }} />
+                <span className="loading-text">Generating analysis…</span>
+              </div>
+            )}
+            {summary && (
+              <div
+                style={{
+                  fontSize: "0.85rem",
+                  lineHeight: "1.6",
+                  color: "var(--text-secondary)",
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {summary}
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>

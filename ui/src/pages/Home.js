@@ -29,6 +29,15 @@ function Home() {
           </div>
         </Link>
 
+        <Link to="/compare" className="feature-card">
+          <div className="feature-icon">📊</div>
+          <div className="feature-title">Compare to #1</div>
+          <div className="feature-desc">
+            Compare your ability breakdown side-by-side against the top-ranked
+            player for the same boss, class, and spec.
+          </div>
+        </Link>
+
         {/* Population card disabled for now */}
       </div>
     </div>

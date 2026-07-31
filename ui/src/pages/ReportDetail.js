@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, Link } from "react-router-dom";
 
 function ReportDetail({ backendUrl }) {
@@ -366,6 +366,8 @@ function ReportDetail({ backendUrl }) {
     };
   });
 
+  const gearScrollRef = useRef(null);
+
   const tabs = [
     { id: "dps", label: "DPS", icon: "⚔️" },
     { id: "healing", label: "Healing", icon: "💚" },
@@ -456,7 +458,8 @@ function ReportDetail({ backendUrl }) {
                     <th onClick={() => sortDps("damage")}>
                       Total Damage {dpsIndicator("damage")}
                     </th>
-                    <th style={{ width: "30%" }}>Relative</th>
+                    <th style={{ width: "25%" }}>Relative</th>
+                    <th style={{ width: "120px" }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -465,7 +468,15 @@ function ReportDetail({ backendUrl }) {
                       <td style={{ color: "var(--text-muted)" }}>
                         {index + 1}
                       </td>
-                      <td style={{ fontWeight: 600 }}>{entry.name}</td>
+                      <td style={{ fontWeight: 600 }}>
+                        <Link
+                          to={`/report/${code}/player?player=${encodeURIComponent(entry.name)}`}
+                          style={{ color: "inherit", textDecoration: "none" }}
+                          title="View player in this report"
+                        >
+                          {entry.name}
+                        </Link>
+                      </td>
                       <td>
                         <span className="ilvl-badge ilvl-high">
                           {entry.dps.toLocaleString()}
@@ -492,6 +503,18 @@ function ReportDetail({ backendUrl }) {
                             }}
                           />
                         </div>
+                      </td>
+                      <td>
+                        {selectedFight !== "all" && (
+                          <Link
+                            to={`/compare?code=${code}&fight=${selectedFight}&player=${encodeURIComponent(entry.name)}`}
+                            className="btn btn-primary"
+                            style={{ fontSize: "0.7rem", padding: "0.2rem 0.5rem" }}
+                            title="Compare vs #1 parse"
+                          >
+                            Compare
+                          </Link>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -611,7 +634,8 @@ function ReportDetail({ backendUrl }) {
                   {copiedAudit ? "✓ Copied!" : "📋 Export Enchant Audit"}
                 </button>
               </div>
-              <div className="table-container">
+              <div className="gear-table-wrapper" ref={gearScrollRef}>
+              <GearScrollBar scrollRef={gearScrollRef} />
               <table className="data-table">
                 <thead>
                   <tr>
@@ -833,6 +857,112 @@ function ReportDetail({ backendUrl }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── Sticky scroll control bar for wide tables ── */
+function GearScrollBar({ scrollRef }) {
+  const [scrollPct, setScrollPct] = useState(0);
+  const [canScroll, setCanScroll] = useState(false);
+  const trackRef = useRef(null);
+  const dragging = useRef(false);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const update = () => {
+      const maxScroll = el.scrollWidth - el.clientWidth;
+      setCanScroll(maxScroll > 0);
+      setScrollPct(maxScroll > 0 ? el.scrollLeft / maxScroll : 0);
+    };
+
+    update();
+    el.addEventListener("scroll", update);
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener("scroll", update);
+      ro.disconnect();
+    };
+  }, [scrollRef]);
+
+  // Drag handlers
+  useEffect(() => {
+    const onMove = (e) => {
+      if (!dragging.current) return;
+      e.preventDefault();
+      const track = trackRef.current;
+      const el = scrollRef.current;
+      if (!track || !el) return;
+      const rect = track.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      const maxScroll = el.scrollWidth - el.clientWidth;
+      el.scrollLeft = pct * maxScroll;
+    };
+    const onUp = () => { dragging.current = false; };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    window.addEventListener("touchmove", onMove, { passive: false });
+    window.addEventListener("touchend", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      window.removeEventListener("touchmove", onMove);
+      window.removeEventListener("touchend", onUp);
+    };
+  }, [scrollRef]);
+
+  if (!canScroll) return null;
+
+  const scroll = (direction) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const step = el.clientWidth * 0.6;
+    el.scrollBy({ left: direction * step, behavior: "smooth" });
+  };
+
+  const onTrackClick = (e) => {
+    // Ignore if clicking the thumb itself (drag handles it)
+    if (e.target.classList.contains("gear-scroll-thumb")) return;
+    const el = scrollRef.current;
+    if (!el) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct = (e.clientX - rect.left) / rect.width;
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    el.scrollTo({ left: pct * maxScroll, behavior: "smooth" });
+  };
+
+  const onThumbDown = (e) => {
+    e.preventDefault();
+    dragging.current = true;
+  };
+
+  // Compute thumb width proportional to visible / total width
+  const el = scrollRef.current;
+  const thumbWidthPct = el ? Math.max(5, (el.clientWidth / el.scrollWidth) * 100) : 10;
+
+  return (
+    <div className="gear-scroll-bar">
+      <button className="gear-scroll-btn" onClick={() => scroll(-1)} title="Scroll left">
+        ◀
+      </button>
+      <div className="gear-scroll-track" ref={trackRef} onClick={onTrackClick}>
+        <div
+          className="gear-scroll-thumb"
+          style={{
+            left: `${scrollPct * (100 - thumbWidthPct)}%`,
+            width: `${thumbWidthPct}%`,
+          }}
+          onMouseDown={onThumbDown}
+          onTouchStart={onThumbDown}
+        />
+      </div>
+      <button className="gear-scroll-btn" onClick={() => scroll(1)} title="Scroll right">
+        ▶
+      </button>
     </div>
   );
 }

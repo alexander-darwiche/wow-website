@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
+import { useAppContext } from "../context/AppContext";
+import GearSheet from "../components/GearSheet";
 
 function PlayerPage({ backendUrl }) {
-  const [guild, setGuild] = useState("");
-  const [server, setServer] = useState("");
-  const [playerName, setPlayerName] = useState("");
+  const { guild, setGuild, server, setServer } = useAppContext();
+  const [searchParams] = useSearchParams();
+
+  const [playerName, setPlayerName] = useState(() => searchParams.get("player") || "");
   const [loading, setLoading] = useState(false);
   const [fetched, setFetched] = useState(false);
   const [data, setData] = useState(null);
@@ -22,16 +25,25 @@ function PlayerPage({ backendUrl }) {
 
   // Expanded logs
   const [expandedLogs, setExpandedLogs] = useState(new Set());
-  const [showGear, setShowGear] = useState(true);
 
-  // Refresh Wowhead tooltips/icons when data or gear visibility changes
+  // Refresh Wowhead tooltips/icons when data changes (GearSheet handles its own)
   useEffect(() => {
     if (data && window.$WowheadPower) {
       setTimeout(() => window.$WowheadPower.refreshLinks(), 100);
     }
-  }, [data, showGear, expandedLogs]);
+  }, [data, expandedLogs]);
 
-  const fetchPlayerData = () => {
+  // Auto-fetch when navigated with search params
+  const autoFetched = React.useRef(false);
+  useEffect(() => {
+    if (!autoFetched.current && guild && server && playerName) {
+      autoFetched.current = true;
+      fetchPlayerDataFn();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const fetchPlayerDataFn = () => {
     if (!guild || !server || !playerName) return;
     setLoading(true);
     setFetched(false);
@@ -50,7 +62,7 @@ function PlayerPage({ backendUrl }) {
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === "Enter") fetchPlayerData();
+    if (e.key === "Enter") fetchPlayerDataFn();
   };
 
   const toggleLog = (code) => {
@@ -120,40 +132,6 @@ function PlayerPage({ backendUrl }) {
     killFights.length > 0 ? Math.max(...killFights.map((f) => f.dps)) : 0;
   const bestFight = killFights.find((f) => f.dps === bestDps);
 
-  // Gear slot layout for character sheet
-  const SLOT_LABELS = {
-    0: "Head", 1: "Neck", 2: "Shoulder", 14: "Back", 4: "Chest",
-    3: "Shirt", 18: "Tabard", 8: "Wrist",
-    9: "Hands", 5: "Waist", 6: "Legs", 7: "Feet",
-    10: "Ring 1", 11: "Ring 2", 12: "Trinket 1", 13: "Trinket 2",
-    15: "Main Hand", 16: "Off Hand", 17: "Ranged",
-  };
-
-  const LEFT_SLOTS = [0, 1, 2, 14, 4, 3, 18, 8];
-  const RIGHT_SLOTS = [9, 5, 6, 7, 10, 11, 12, 13];
-  const BOTTOM_SLOTS = [15, 16, 17];
-
-  const getGearBySlot = (slotId) => {
-    if (!data?.export?.gearDisplay) return null;
-    return data.export.gearDisplay.find((g) => g.slot === slotId) || null;
-  };
-
-  const getQualityClass = (quality) => {
-    if (quality >= 5) return "quality-legendary";
-    if (quality >= 4) return "quality-epic";
-    if (quality >= 3) return "quality-rare";
-    if (quality >= 2) return "quality-uncommon";
-    return "quality-common";
-  };
-
-  const SLOT_ICONS = {
-    0: "🪖", 1: "📿", 2: "🦽", 14: "🧣", 4: "👕",
-    3: "👔", 18: "🏷️", 8: "⌚",
-    9: "🧤", 5: "🪢", 6: "👖", 7: "👢",
-    10: "💍", 11: "💍", 12: "🔮", 13: "🔮",
-    15: "⚔️", 16: "🛡️", 17: "🏹",
-  };
-
   return (
     <div>
       <div className="page-header">
@@ -189,7 +167,7 @@ function PlayerPage({ backendUrl }) {
           onChange={(e) => setPlayerName(e.target.value)}
           onKeyDown={handleKeyDown}
         />
-        <button className="btn btn-primary" onClick={fetchPlayerData}>
+        <button className="btn btn-primary" onClick={fetchPlayerDataFn}>
           Lookup
         </button>
       </div>
@@ -259,178 +237,13 @@ function PlayerPage({ backendUrl }) {
           </div>
 
           {/* Gear Character Sheet */}
-          {data?.export?.gearDisplay && data.export.gearDisplay.length > 0 && (
-            <div className="gear-sheet-section">
-              <div
-                className="gear-sheet-header"
-                onClick={() => setShowGear(!showGear)}
-              >
-                <span className="gear-sheet-title">
-                  ⚔️ Equipment
-                  {data.export.avgIlvl && (
-                    <span className="avg-ilvl-badge">
-                      iLvl {data.export.avgIlvl}
-                    </span>
-                  )}
-                </span>
-                <span className="gear-toggle">{showGear ? "▼" : "▶"}</span>
-              </div>
-              {showGear && (
-                <div className="gear-sheet-body">
-                  <div className="gear-sheet-left">
-                    {LEFT_SLOTS.map((slotId) => {
-                      const item = getGearBySlot(slotId);
-                      return (
-                        <div
-                          key={slotId}
-                          className={`gear-slot ${item ? "equipped" : "empty"}`}
-                        >
-                          <div className="gear-slot-icon">
-                            {SLOT_ICONS[slotId]}
-                          </div>
-                          <div className="gear-slot-info">
-                            <div className="gear-slot-label">
-                              {SLOT_LABELS[slotId]}
-                            </div>
-                            {item ? (
-                              <>
-                                <a
-                                  href={`https://www.wowhead.com/tbc/item=${item.id}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className={`gear-item-name ${getQualityClass(item.quality)}`}
-                                  data-wowhead={`item=${item.id}&domain=tbc`}
-                                >
-                                  {item.name}
-                                </a>
-                                <div className="gear-item-details">
-                                  <span className="gear-ilvl">
-                                    iLvl {item.ilvl}
-                                  </span>
-                                  {item.enchant && (
-                                    <span className="gear-enchant">
-                                      ✦ {item.enchant}
-                                    </span>
-                                  )}
-                                </div>
-                              </>
-                            ) : (
-                              <span className="gear-empty-text">Empty</span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="gear-sheet-center">
-                    <div className="gear-center-frame">
-                      <div className="gear-center-icon">🧙</div>
-                      <div className="gear-center-name">{data.name}</div>
-                      <div className="gear-center-class">{data.class}</div>
-                      {data.export.avgIlvl && (
-                        <div className="gear-center-ilvl">
-                          Average Item Level{" "}
-                          <strong>{data.export.avgIlvl}</strong>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="gear-sheet-right">
-                    {RIGHT_SLOTS.map((slotId) => {
-                      const item = getGearBySlot(slotId);
-                      return (
-                        <div
-                          key={slotId}
-                          className={`gear-slot ${item ? "equipped" : "empty"} right-slot`}
-                        >
-                          <div className="gear-slot-info right-info">
-                            <div className="gear-slot-label">
-                              {SLOT_LABELS[slotId]}
-                            </div>
-                            {item ? (
-                              <>
-                                <a
-                                  href={`https://www.wowhead.com/tbc/item=${item.id}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className={`gear-item-name ${getQualityClass(item.quality)}`}
-                                  data-wowhead={`item=${item.id}&domain=tbc`}
-                                >
-                                  {item.name}
-                                </a>
-                                <div className="gear-item-details">
-                                  <span className="gear-ilvl">
-                                    iLvl {item.ilvl}
-                                  </span>
-                                  {item.enchant && (
-                                    <span className="gear-enchant">
-                                      ✦ {item.enchant}
-                                    </span>
-                                  )}
-                                </div>
-                              </>
-                            ) : (
-                              <span className="gear-empty-text">Empty</span>
-                            )}
-                          </div>
-                          <div className="gear-slot-icon">
-                            {SLOT_ICONS[slotId]}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <div className="gear-sheet-bottom">
-                    {BOTTOM_SLOTS.map((slotId) => {
-                      const item = getGearBySlot(slotId);
-                      return (
-                        <div
-                          key={slotId}
-                          className={`gear-slot bottom-slot ${item ? "equipped" : "empty"}`}
-                        >
-                          <div className="gear-slot-icon">
-                            {SLOT_ICONS[slotId]}
-                          </div>
-                          <div className="gear-slot-info">
-                            <div className="gear-slot-label">
-                              {SLOT_LABELS[slotId]}
-                            </div>
-                            {item ? (
-                              <>
-                                <a
-                                  href={`https://www.wowhead.com/tbc/item=${item.id}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className={`gear-item-name ${getQualityClass(item.quality)}`}
-                                  data-wowhead={`item=${item.id}&domain=tbc`}
-                                >
-                                  {item.name}
-                                </a>
-                                <div className="gear-item-details">
-                                  <span className="gear-ilvl">
-                                    iLvl {item.ilvl}
-                                  </span>
-                                  {item.enchant && (
-                                    <span className="gear-enchant">
-                                      ✦ {item.enchant}
-                                    </span>
-                                  )}
-                                </div>
-                              </>
-                            ) : (
-                              <span className="gear-empty-text">Empty</span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
+          {data?.export?.gearDisplay && (
+            <GearSheet
+              gearDisplay={data.export.gearDisplay}
+              avgIlvl={data.export.avgIlvl}
+              characterName={data.player}
+              wowClass={data.playerClass}
+            />
           )}
 
           {/* Instructions */}

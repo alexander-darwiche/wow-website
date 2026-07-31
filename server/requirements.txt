@@ -4,3 +4,9 @@ sqlalchemy
 psycopg2-binary
 requests>=2.31.0
 pytz
+openai>=1.0.0  # used as Ollama-compatible client
+pydantic-settings
+alembic
+pyjwt
+python-dotenv
+httpx

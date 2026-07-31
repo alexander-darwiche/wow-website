@@ -1,25 +1,29 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import { useAppContext } from "../context/AppContext";
 
 function GuildSummary({ backendUrl }) {
-  const [guild, setGuild] = useState("");
-  const [server, setServer] = useState("");
-  const [logs, setLogs] = useState([]);
+  const {
+    guild, setGuild,
+    server, setServer,
+    guildLogs, setGuildLogs,
+    guildLogsFetched, setGuildLogsFetched,
+  } = useAppContext();
+
   const [loading, setLoading] = useState(false);
-  const [fetched, setFetched] = useState(false);
 
   const fetchGuildLogs = () => {
     if (!guild || !server) return;
     setLoading(true);
-    setFetched(false);
+    setGuildLogsFetched(false);
 
     fetch(
       `${backendUrl}/api/guild-logs?guild=${encodeURIComponent(guild)}&server=${encodeURIComponent(server)}`
     )
       .then((res) => res.json())
       .then((data) => {
-        setLogs(data);
-        setFetched(true);
+        setGuildLogs(data);
+        setGuildLogsFetched(true);
       })
       .catch((err) => console.error("Failed to fetch guild logs:", err))
       .finally(() => setLoading(false));
@@ -30,7 +34,7 @@ function GuildSummary({ backendUrl }) {
   };
 
   // Group logs by zone, preserving date order within each group
-  const grouped = logs.reduce((acc, log) => {
+  const grouped = guildLogs.reduce((acc, log) => {
     if (!acc[log.zone]) acc[log.zone] = [];
     acc[log.zone].push(log);
     return acc;
@@ -92,7 +96,7 @@ function GuildSummary({ backendUrl }) {
         </div>
       )}
 
-      {!loading && fetched && logs.length === 0 && (
+      {!loading && guildLogsFetched && guildLogs.length === 0 && (
         <div className="empty-state">
           <div className="empty-state-icon">📭</div>
           <div className="empty-state-text">
@@ -139,7 +143,7 @@ function GuildSummary({ backendUrl }) {
         </div>
       )}
 
-      {!loading && !fetched && (
+      {!loading && !guildLogsFetched && (
         <div className="empty-state">
           <div className="empty-state-icon">🔍</div>
           <div className="empty-state-text">
